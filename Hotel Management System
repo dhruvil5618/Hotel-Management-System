@@ -1,0 +1,409 @@
+#include <iostream>
+#include <string>
+#include <iomanip>
+using namespace std;
+
+// Base class
+class Room {
+protected:
+    int roomNo;
+    string type;
+    double price;
+    bool available;
+
+public:
+    Room(int n, string t, double p) {
+        roomNo = n;
+        type = t;
+        price = p;
+        available = true;
+    }
+
+    virtual double calculateBill(int nights) {
+        return price * nights;
+    }
+
+    virtual void display() {
+        cout << roomNo << "  " << type << "  Rs."
+             << price << "  "
+             << (available ? "Available" : "Occupied") << endl;
+    }
+
+    int getRoomNo() { return roomNo; }
+    string getType() { return type; }
+    double getPrice() { return price; }
+    bool isAvailable() { return available; }
+    void setAvailable(bool status) { available = status; }
+
+    virtual ~Room() {}
+};
+
+// Inheritance
+class StandardRoom : public Room {
+public:
+    StandardRoom() : Room(101, "Standard", 1500) {}
+
+    double calculateBill(int nights) override {
+        return price * nights;
+    }
+};
+
+class DeluxeRoom : public Room {
+public:
+    DeluxeRoom(int n) : Room(n, "Deluxe", 2500) {}
+
+    double calculateBill(int nights) override {
+        return price * nights;
+    }
+};
+
+class PremiumSuite : public Room {
+public:
+    PremiumSuite() : Room(401, "Premium Suite", 6000) {}
+
+    double calculateBill(int nights) override {
+        return price * nights;
+    }
+};
+
+// Customer class
+class Customer {
+private:
+    int id;
+    string name, phone, email;
+
+public:
+    Customer(int i, string n, string p, string e) {
+        id = i;
+        name = n;
+        phone = p;
+        email = e;
+    }
+
+    int getID() { return id; }
+
+    void display() {
+        cout << "\nCustomer ID: " << id
+             << "\nName: " << name
+             << "\nPhone: " << phone
+             << "\nEmail: " << email << endl;
+    }
+};
+
+// Booking details
+struct Booking {
+    int customerID, roomNo, nights;
+    string checkIn, checkOut, payment;
+    double amount;
+    bool active;
+};
+
+// Hotel management class
+class Hotel {
+private:
+    Customer* customers[100];
+    int customerCount = 0;
+    Room* rooms[4];
+    Booking bookings[100];
+    int bookingCount = 0;
+    int nextID = 1001;
+
+public:
+    Hotel() {
+        rooms[0] = new StandardRoom();
+        rooms[1] = new DeluxeRoom(201);
+        rooms[2] = new DeluxeRoom(301);
+        rooms[3] = new PremiumSuite();
+    }
+
+    ~Hotel() {
+        for (int i = 0; i < 4; i++)
+            delete rooms[i];
+
+        for (int i = 0; i < customerCount; i++)
+            delete customers[i];
+    }
+
+    int findRoom(int number) {
+        for (int i = 0; i < 4; i++)
+            if (rooms[i]->getRoomNo() == number)
+                return i;
+        return -1;
+    }
+
+    int findCustomer(int id) {
+        for (int i = 0; i < customerCount; i++)
+            if (customers[i]->getID() == id)
+                return i;
+        return -1;
+    }
+
+    void displayRooms() {
+        cout << "\nROOM STATUS\n";
+        cout << "Room No.  Type             Price       Status\n";
+
+        for (int i = 0; i < 4; i++)
+            rooms[i]->display();
+    }
+
+    void registerCustomer() {
+        if (customerCount >= 100) {
+            cout << "Customer limit reached.\n";
+            return;
+        }
+
+        string name, phone, email;
+
+        cout << "Enter Name: ";
+        cin >> ws;
+        getline(cin, name);
+
+        cout << "Enter 10-digit Phone: ";
+        cin >> phone;
+
+        if (phone.length() != 10) {
+            cout << "Invalid phone number.\n";
+            return;
+        }
+
+        for (char c : phone) {
+            if (c < '0' || c > '9') {
+                cout << "Phone must contain digits only.\n";
+                return;
+            }
+        }
+
+        cout << "Enter Email: ";
+        cin >> email;
+
+        if (email.find('@') == string::npos ||
+            email.find('.') == string::npos) {
+            cout << "Invalid email.\n";
+            return;
+        }
+
+        customers[customerCount] =
+            new Customer(nextID, name, phone, email);
+
+        cout << "Customer registered successfully!\n";
+        cout << "Customer ID: " << nextID << endl;
+
+        customerCount++;
+        nextID++;
+    }
+
+    void bookRoom() {
+        if (customerCount == 0) {
+            cout << "Register a customer first.\n";
+            return;
+        }
+
+        int id, number;
+        string date;
+
+        displayRooms();
+
+        cout << "Enter Customer ID: ";
+        cin >> id;
+
+        if (findCustomer(id) == -1) {
+            cout << "Customer not found.\n";
+            return;
+        }
+
+        cout << "Enter Room Number: ";
+        cin >> number;
+
+        int r = findRoom(number);
+
+        if (r == -1 || !rooms[r]->isAvailable()) {
+            cout << "Room unavailable or invalid.\n";
+            return;
+        }
+
+        cout << "Enter Check-in Date (DD-MM-YYYY): ";
+        cin >> date;
+
+        bookings[bookingCount].customerID = id;
+        bookings[bookingCount].roomNo = number;
+        bookings[bookingCount].checkIn = date;
+        bookings[bookingCount].checkOut = "Not checked out";
+        bookings[bookingCount].nights = 0;
+        bookings[bookingCount].amount = 0;
+        bookings[bookingCount].payment = "Not selected";
+        bookings[bookingCount].active = true;
+
+        bookingCount++;
+        rooms[r]->setAvailable(false);
+
+        cout << "Room booked successfully!\n";
+    }
+
+    void checkOut() {
+        int number;
+        cout << "Enter Room Number: ";
+        cin >> number;
+
+        int r = findRoom(number);
+
+        if (r == -1 || rooms[r]->isAvailable()) {
+            cout << "No active booking for this room.\n";
+            return;
+        }
+
+        int b = -1;
+
+        for (int i = bookingCount - 1; i >= 0; i--) {
+            if (bookings[i].roomNo == number &&
+                bookings[i].active) {
+                b = i;
+                break;
+            }
+        }
+
+        if (b == -1) {
+            cout << "Booking not found.\n";
+            return;
+        }
+
+        int nights, choice;
+        string date;
+
+        cout << "Enter Check-out Date: ";
+        cin >> date;
+
+        cout << "Enter Nights Stayed: ";
+        cin >> nights;
+
+        if (nights <= 0) {
+            cout << "Invalid number of nights.\n";
+            return;
+        }
+
+        cout << "1. Cash\n2. UPI\nSelect Payment: ";
+        cin >> choice;
+
+        if (choice != 1 && choice != 2) {
+            cout << "Invalid payment method.\n";
+            return;
+        }
+
+        string method = (choice == 1) ? "Cash" : "UPI";
+
+        // Runtime polymorphism
+        double total = rooms[r]->calculateBill(nights);
+
+        cout << "\nTOTAL BILL: Rs. "
+             << fixed << setprecision(2) << total << endl;
+
+        char confirm;
+        cout << "Confirm Payment and Checkout? (Y/N): ";
+        cin >> confirm;
+
+        if (confirm != 'Y' && confirm != 'y') {
+            cout << "Checkout cancelled.\n";
+            return;
+        }
+
+        bookings[b].checkOut = date;
+        bookings[b].nights = nights;
+        bookings[b].amount = total;
+        bookings[b].payment = method;
+        bookings[b].active = false;
+
+        rooms[r]->setAvailable(true);
+
+        cout << "\nCHECKOUT COMPLETED\n";
+        cout << "Customer ID: " << bookings[b].customerID << endl;
+        cout << "Room Number: " << number << endl;
+        cout << "Room Type: " << rooms[r]->getType() << endl;
+        cout << "Check-in: " << bookings[b].checkIn << endl;
+        cout << "Check-out: " << date << endl;
+        cout << "Nights: " << nights << endl;
+        cout << "Payment: " << method << endl;
+        cout << "Payment Status: Successfully Paid\n";
+        cout << "Total Amount: Rs. " << total << endl;
+        cout << "Thank you for your visit.\n";
+        cout << "We look forward to welcoming you again!\n";
+    }
+
+    void finalReport() {
+        double revenue = 0;
+        int completed = 0;
+
+        cout << "\nFINAL HOTEL REPORT\n";
+
+        for (int i = 0; i < bookingCount; i++) {
+            cout << "\nCustomer ID: " << bookings[i].customerID
+                 << "\nRoom Number: " << bookings[i].roomNo
+                 << "\nCheck-in: " << bookings[i].checkIn
+                 << "\nCheck-out: " << bookings[i].checkOut;
+
+            if (!bookings[i].active) {
+                cout << "\nNights: " << bookings[i].nights
+                     << "\nPayment: " << bookings[i].payment
+                     << "\nAmount: Rs. " << bookings[i].amount;
+
+                revenue += bookings[i].amount;
+                completed++;
+            } else {
+                cout << "\nStatus: Currently Occupied";
+            }
+
+            cout << "\n-------------------------\n";
+        }
+
+        cout << "\nCompleted Checkouts: " << completed
+             << "\nTotal Revenue: Rs. " << revenue << endl;
+    }
+
+    void menu() {
+        int choice;
+
+        do {
+            cout << "\n===== HOTEL MANAGEMENT SYSTEM =====\n"
+                 << "1. Display Rooms\n"
+                 << "2. Register Customer\n"
+                 << "3. Book Room\n"
+                 << "4. Check Out and Generate Bill\n"
+                 << "5. Display Customers\n"
+                 << "0. Exit and Generate Final Report\n"
+                 << "Enter Choice: ";
+
+            cin >> choice;
+
+            switch (choice) {
+                case 1:
+                    displayRooms();
+                    break;
+                case 2:
+                    registerCustomer();
+                    break;
+                case 3:
+                    bookRoom();
+                    break;
+                case 4:
+                    checkOut();
+                    break;
+                case 5:
+                    for (int i = 0; i < customerCount; i++)
+                        customers[i]->display();
+                    break;
+                case 0:
+                    finalReport();
+                    break;
+                default:
+                    cout << "Invalid choice.\n";
+            }
+        } while (choice != 0);
+
+        cout << "Thank you for using our Hotel Management System!\n";
+    }
+};
+
+int main() {
+    Hotel hotel;
+    cout << "Welcome to Our Hotel Management System!\n";
+    hotel.menu();
+    return 0;
+}
